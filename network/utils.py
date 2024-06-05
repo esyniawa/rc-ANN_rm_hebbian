@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Optional
 
+
 def reshape_array(m: np.ndarray, dim: int = 2) -> np.ndarray:
     """
     Reduces the dimension of a tensor m into a desired dimension.
@@ -34,3 +35,14 @@ def moving_average(data, window_size, dim: Optional[int] = None):
 
     ret[window_size:] = ret[window_size:] - ret[:-window_size]
     return ret[window_size - 1 :] / window_size
+
+
+def memory_out(memory_trace: np.ndarray, rng_trace: np.ndarray) -> np.ndarray:
+    T = len(memory_trace)
+    result = np.zeros(T)
+    for t in range(T):
+        if memory_trace[t] < 0.5:
+            result[t] = rng_trace[t, 0]
+        else:
+            result[t] = rng_trace[t, 1]
+    return result

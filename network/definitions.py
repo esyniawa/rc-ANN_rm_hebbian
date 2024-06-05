@@ -70,7 +70,7 @@ InputNeuron_dynamic = ann.Neuron(
 EHLearningRule = ann.Synapse(
     parameters="""
         eta_init = 0.0005 : projection
-        decay = 100_000. : projection
+        decay = 10000. : projection
         """,
     equations="""
         w_old = w

@@ -1,3 +1,5 @@
+import numpy as np
+
 from network.model import RCNetwork
 
 
@@ -11,35 +13,88 @@ def closed_loop_network(dim_reservoir: int | tuple,
     target, period = RCNetwork.make_dynamic_target(dim_out=dim_out, n_trials=n_periods_train)
 
     # make network
-    net = RCNetwork(dim_reservoir=dim_reservoir, dim_out=dim_out, rho=1.4, phi=0.8)
-    net.compile_network(folder="annarchy_net/")
+    RC = RCNetwork(dim_reservoir=dim_reservoir, dim_out=dim_out, rho=1.2, phi=0.5)
+    RC.compile_network(folder="annarchy/closed_loop_net/")
 
     # init monitors
-    monitoring_rates = ['reservoir_pop', 'output_pop', 'target_pop']
-    net.init_monitors(pop_names=monitoring_rates)
+    monitoring_rates = [pop.name for pop in RC.get_all_populations()]
+    RC.init_monitors(pop_names=monitoring_rates)
 
     # simulate
-    net.run_target(data_target=target)
-    net.run_target(data_target=target, training=False, sim_time=n_periods_test * period)
+    RC.run_target(data_target=target)
+    RC.run_target(data_target=target, training=False, sim_time=n_periods_test * period)
 
-    net.save_monitors(folder='results/', delete_monitors=False)
-    net.plot_rates(
-        plot_order=(1, 3),
-        plot_types=('Matrix', 'Plot', 'Plot'),
+    RC.save_monitors(folder='results/closed_loop_run/', delete_monitors=False)
+    RC.plot_rates(
+        plot_order=(1, len(monitoring_rates)),
+        plot_types=('Plot', 'Matrix', 'Plot'),
         save_name=plot_name
     )
 
 
 def open_loop_network(dim_reservoir: int | tuple,
-                      dim_out: int,
                       n_periods_train: int,
-                      n_periods_test: float,
+                      n_periods_test: int,
                       plot_name: str | None = None):
 
-    from network.definitions import InputNeuron_dynamic
+    from network.utils import memory_out
 
-    pass
+    # make inputs
+    train_input_memory, train_memory_trace, train_T = RCNetwork.make_memory_trace(n_changes=n_periods_train,
+                                                                                  heavyside_offset=-5,
+                                                                                  norm=False)
+
+    train_input_rng, train_nonlinear_trace = RCNetwork.make_random_walk(dim_out=2, T=train_T)
+    train_memory_out = memory_out(memory_trace=train_memory_trace, rng_trace=train_input_rng)
+
+    test_input_memory, test_memory_trace, test_T = RCNetwork.make_memory_trace(n_changes=n_periods_test,
+                                                                               heavyside_offset=-5,
+                                                                               norm=False)
+
+    test_input_rng, test_nonlinear_trace = RCNetwork.make_random_walk(dim_out=2, T=test_T)
+    test_memory_out = memory_out(memory_trace=test_memory_trace, rng_trace=test_input_rng)
+
+    # concatenate arrays
+    input_training = np.column_stack((train_input_memory, train_input_rng))
+    target_non_fb_training = np.column_stack((train_nonlinear_trace, train_memory_out))
+
+    input_test = np.column_stack((test_input_memory, test_input_rng))
+    target_non_fb_test = np.column_stack((test_nonlinear_trace, test_memory_out))
+
+    # make network
+    RC = RCNetwork(dim_reservoir=dim_reservoir, dim_out=1, rho=1.2, phi=0.5)
+
+    # make input populations
+    RC.add_input(dim_in=4, name='in_memory_task')
+
+    # make output populations
+    RC.add_output(dim=2, name='memory_task', scale_fb=None)
+
+    # build network
+    RC.compile_network(folder="annarchy/open_loop_net/")
+
+    # init monitors
+    monitoring_rates = [pop.name for pop in RC.get_all_populations()]
+    RC.init_monitors(pop_names=monitoring_rates)
+
+    # training
+    RC.run_targets_with_inputs(data_in=input_training,
+                               data_target_open=target_non_fb_training,
+                               data_target_closed=train_memory_trace)
+
+    # testing
+    RC.run_targets_with_inputs(data_in=input_test,
+                               data_target_open=target_non_fb_test,
+                               data_target_closed=test_memory_trace)
+
+    RC.save_monitors(folder='results/open_loop_run/', delete_monitors=False)
+    RC.plot_rates(
+        plot_order=(1, len(monitoring_rates)),
+        plot_types=('Plot', 'Matrix', 'Plot', 'Plot', 'Plot', 'Plot'),
+        save_name=plot_name
+    )
 
 
 if __name__ == '__main__':
-    closed_loop_network(1000, 2, 12, n_periods_test=2)
+    # closed_loop_network(1000, 2, 15, n_periods_test=2)
+    open_loop_network(1000, 10, 4)

@@ -15,51 +15,54 @@ class RCNetwork:
                  rho: float = 1.2,
                  phi: float = 0.5):
 
+        # dimensions
         self.dim_reservoir = dim_reservoir
         self.dim_out = dim_out
 
-        self.network = RCNetwork.build_network(dim_reservoir=self.dim_reservoir,
-                                               dim_out=self.dim_out, sigma=sigma, rho=rho, phi=phi)
+        # parameters
+        self.sigma = sigma
+        self.rho = rho
+        self.phi = phi
+
+        # init network
+        self.output_pops = []
+        self.input_pops = []
+        self.target_pops = []
+
+        self.network = self.build_network()
 
         # monitors for recording
         self.monitors = []
 
-        # track input populations for setting inputs and output targets
-        self.target_pops = ['target_pops']
-        self.input_pops = []
-
-    @staticmethod
-    def build_network(dim_reservoir: int | tuple,
-                      dim_out: int,
-                      sigma: float = 0.2,
-                      rho: float = 1.2,
-                      phi: float = 0.6):
+    def build_network(self):
 
         fb_strength = 1.0
         target_strength = 1.0
 
-        if isinstance(dim_reservoir, tuple):
-            N_res = np.prod(dim_reservoir)
+        if isinstance(self.dim_reservoir, tuple):
+            N_res = np.prod(self.dim_reservoir)
         else:
-            N_res = dim_reservoir
+            N_res = self.dim_reservoir
 
         # Target population
-        target_pop = ann.Population(geometry=dim_out, neuron=InputNeuron, name='target_pop')
+        target_pop = ann.Population(geometry=self.dim_out, neuron=InputNeuron, name='target_pop')
+        self.target_pops.append(target_pop.name)
 
         # Built reservoir
-        reservoir = ann.Population(geometry=dim_reservoir, neuron=ReservoirNeuron, name='reservoir_pop')
-        reservoir.chaos_factor = rho
+        reservoir = ann.Population(geometry=self.dim_reservoir, neuron=ReservoirNeuron, name='reservoir_pop')
+        reservoir.chaos_factor = self.rho
         reservoir.tau = 10.
 
         # output population
-        output_pop = ann.Population(geometry=dim_out, neuron=OutputNeuron, name='output_pop')
-        output_pop.phi = phi
+        output_pop = ann.Population(geometry=self.dim_out, neuron=OutputNeuron, name='output_pop')
+        output_pop.phi = self.phi
+        self.output_pops.append(output_pop.name)
 
         # connections
         recurrent_res = ann.Projection(pre=reservoir, post=reservoir, target='rec')
-        recurrent_res.connect_fixed_probability(probability=sigma,
+        recurrent_res.connect_fixed_probability(probability=self.sigma,
                                                 weights=ann.Normal(mu=0,
-                                                                   sigma=np.sqrt(1 / (sigma * N_res))))
+                                                                   sigma=np.sqrt(1 / (self.sigma * N_res))))
 
         # reservoir -> output
         res_output = ann.Projection(pre=reservoir, post=output_pop,
@@ -87,11 +90,11 @@ class RCNetwork:
 
         # new pop
         pop = ann.Population(geometry=dim_in, neuron=neuron_model, name=name)
-        self.input_pops.append(pop.name)
+        self.input_pops.append(name)
 
         res = self.network.get_population(name='reservoir_pop')
 
-        proj = ann.Projection(pre=pop, post=res, name=name + '_in')
+        proj = ann.Projection(pre=pop, post=res, target='in', name=name + '_in')
         proj.connect_all_to_all(ann.Uniform(min=-scale_input, max=scale_input))
 
         self.network.add([pop, proj])
@@ -101,19 +104,23 @@ class RCNetwork:
         # new pops
         pop_out = ann.Population(geometry=dim, neuron=OutputNeuron, name='out_' + name)
         pop_target = ann.Population(geometry=dim, neuron=InputNeuron, name='target_' + name)
+        self.output_pops.append(pop_out.name)
         self.target_pops.append(pop_target.name)
 
         res = self.network.get_population(name='reservoir_pop')
 
         # new projs
-        proj_out = ann.Projection(pre=res, post=pop_out, name='con_' + name + '_out')
+        proj_out = ann.Projection(pre=res, post=pop_out,
+                                  target='in',
+                                  synapse=EHLearningRule,
+                                  name='con_' + name + '_out')
         proj_out.connect_all_to_all(0.0)
 
-        proj_target = ann.Projection(pre=pop_target, post=pop_out, name='con_' + name + '_target')
+        proj_target = ann.Projection(pre=pop_target, post=pop_out, target='tar', name='con_' + name + '_target')
         proj_target.connect_one_to_one(scale_target)
 
         if scale_fb is not None:
-            proj_fb = ann.Projection(pre=pop_out, post=res, name='con_' + name + '_fb')
+            proj_fb = ann.Projection(pre=pop_out, post=res, target='fb', name='con_' + name + '_fb')
             proj_fb.connect_all_to_all(ann.Uniform(min=-scale_fb, max=scale_fb))
 
             self.network.add([pop_out, pop_target, proj_out, proj_target, proj_fb])
@@ -141,11 +148,41 @@ class RCNetwork:
         @ann.every(period=period, net_id=self.network.id)
         def set_inputs(n):
             # Set inputs to the network
-            self.network.get_population(name='target_pop').baseline = data_target[n]
+            self.network.get_population(name=self.target_pops[0]).baseline = data_target[n]
 
         ann.enable_callbacks(net_id=self.network.id)
         if sim_time is None:
             t_data_in = data_target.shape[0]
+            self.network.simulate(t_data_in * period)
+        else:
+            self.network.simulate(sim_time * period)
+
+    def run_targets_with_inputs(self,
+                                data_target_closed: np.ndarray,
+                                data_target_open: np.ndarray,
+                                data_in: np.ndarray,
+                                period: float = 1.,
+                                training: bool = True,
+                                sim_time: float | None = None):
+
+        if training:
+            self.network.enable_learning()
+        else:
+            self.network.disable_learning()
+            for out_pop in self.output_pops:
+                self.network.get_population(name=out_pop).phi = 0.0
+
+        @ann.every(period=period, net_id=self.network.id)
+        def set_inputs(n):
+            # TODO: This implementation isn't optimal. You could track the input population and iterate over them.
+            #  But I didn't want to implement a second for-loop, therefore this implementation
+            self.network.get_population(name=self.target_pops[0]).baseline = data_target_closed[n]
+            self.network.get_population(name=self.input_pops[0]).baseline = data_in[n]
+            self.network.get_population(name=self.target_pops[1]).baseline = data_target_open[n]
+
+        ann.enable_callbacks(net_id=self.network.id)
+        if sim_time is None:
+            t_data_in = data_target_closed.shape[0]
             self.network.simulate(t_data_in * period)
         else:
             self.network.simulate(sim_time * period)
@@ -175,7 +212,7 @@ class RCNetwork:
                           heavyside_offset: int = 0,
                           min_length: int = 200,
                           max_length: int = 1200,
-                          smoothing_window: int = 50,
+                          smoothing_window: int = 25,
                           norm: bool = True,
                           seed: Optional[int] = None):
 
@@ -185,38 +222,68 @@ class RCNetwork:
         T = np.sum(changes) + 1
         changes = np.cumsum(changes)
 
-        mermory_trace = np.zeros(T)
+        memory_trace = np.zeros(T)
         input_trace = np.zeros((T, 2))
 
         for i in range(len(changes) - 1):
-            mermory_trace[int(changes[i]):int(changes[i+1])] = (i+1) % 2
-            bins = np.array((int(changes[i] + heavyside_offset), int(changes[i] + heavyside_width + heavyside_offset)))
-            input_trace[bins, i % 2] = 1
+            memory_trace[int(changes[i]):int(changes[i+1])] = (i+1) % 2
+            start, end = int(changes[i] + heavyside_offset), int(changes[i] + heavyside_width + heavyside_offset)
+            input_trace[start:end, i % 2] = 1
 
         # smooth input and output
-        mermory_trace = moving_average(mermory_trace, smoothing_window)
+        memory_trace = moving_average(memory_trace, smoothing_window)
         input_trace = moving_average(input_trace, smoothing_window, dim=0)
 
         if norm:
-            return mermory_trace/np.amax(mermory_trace), input_trace/np.amax(input_trace, axis=0)
+            return input_trace/np.amax(input_trace, axis=0), memory_trace/np.amax(memory_trace), input_trace.shape[0]
         else:
-            return mermory_trace, input_trace
+            return input_trace, memory_trace, input_trace.shape[0]
 
     @staticmethod
     def make_random_walk(dim_out: int, T: int,
-                         start_points: float | np.ndarray = 0.5,
-                         mu: float = 0.5,
-                         sigma: float = 0.1,
+                         start_points: float | np.ndarray = 0.0,
+                         mu: float = 0.0,
+                         sigma: float = 0.02,
                          seed: Optional[int] = None):
 
         # generate random gradients
-        rng = np.random.default_rng(seed).normal(loc=mu, scale=sigma, size=(T, dim_out))
+        rng = np.random.default_rng(seed).normal(loc=mu, scale=sigma, size=(T-1, dim_out))
         # if single value fill a array with the fitting dimensions
         if isinstance(start_points, float):
             start_points = np.repeat(start_points, dim_out)
-        trace = np.row_stack((start_points, rng))
 
-        return np.cumsum(trace, axis=1)[1:]
+        trace = np.cumsum(np.row_stack((start_points, rng)), axis=0)
+
+        return trace, np.mean(trace, axis=1)
+
+    @staticmethod
+    def make_random_walk_clip(dim_out: int, T: int, bounderies: float,
+                              start_points: float | np.ndarray = 0.0,
+                              mu: float = 0.0,
+                              sigma: float = 0.05,
+                              seed: Optional[int] = None):
+
+        # Initialize random number generator
+        rng = np.random.default_rng(seed)
+
+        # Generate random gradients
+        random_steps = rng.normal(loc=mu, scale=sigma, size=(T-1, dim_out))
+
+        # If start_points is a single value, create an array with the same value repeated
+        if isinstance(start_points, float):
+            start_points = np.full(dim_out, start_points)
+
+        # Initialize the trace with the start points
+        trace = np.zeros((T, dim_out))
+        trace[0] = start_points
+
+        # Compute the random walk
+        for t in range(1, T):
+            trace[t] = trace[t-1] + random_steps[t-1]
+            # Clip the values to the specified boundaries
+            trace[t] = np.clip(trace[t], -bounderies, bounderies)
+
+        return trace, np.mean(trace, axis=1)
 
     def init_monitors(self, pop_names: list[str], var_names: list[str] | None = None, sample_rate: float = 2.0):
         if var_names is None:
@@ -252,13 +319,13 @@ class RCNetwork:
             np.save(folder + monitor.object.name, rec.get(keep=not delete_monitors, reshape=reshape))
 
     def plot_rates(self, plot_order: tuple[int, int],
-                   plot_types: tuple,
+                   plot_types: tuple | None,
                    fig_size: tuple[float, float] | list[float, float] = (5, 5),
                    save_name: str = None) -> None:
 
         """
         Plots 2D populations rates.
-        :param plot_type: can be 'Plot' or 'Matrix'
+        :param plot_types: can be 'Plot', 'Matrix' or None
         :param plot_order:
         :param fig_size:
         :param save_name:
