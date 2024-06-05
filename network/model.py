@@ -1,9 +1,10 @@
+from typing import Optional, Tuple
 import os
 import numpy as np
 import ANNarchy as ann
 import matplotlib.pyplot as plt
 
-from .definitions import InputNeuron, ReservoirNeuron, OutputNeuron, EHLearningRule
+from .definitions import InputNeuron, InputNeuron_dynamic, ReservoirNeuron, OutputNeuron, EHLearningRule
 
 
 class RCNetwork:
@@ -20,8 +21,12 @@ class RCNetwork:
         self.network = RCNetwork.build_network(dim_reservoir=self.dim_reservoir,
                                                dim_out=self.dim_out, sigma=sigma, rho=rho, phi=phi)
 
+        # monitors for recording
         self.monitors = []
-        self.monitors_vars = []
+
+        # track input populations for setting inputs and output targets
+        self.target_pops = ['target_pops']
+        self.input_pops = []
 
     @staticmethod
     def build_network(dim_reservoir: int | tuple,
@@ -75,8 +80,15 @@ class RCNetwork:
 
         return network
 
-    def add_input(self, dim_in: int, scale_input: float = 1.0, name: str = 'input_pop'):
-        pop = ann.Population(geometry=dim_in, neuron=InputNeuron, name=name)
+    def add_input(self, dim_in: int,
+                  scale_input: float = 1.0,
+                  name: str = 'input_pop',
+                  neuron_model: ann.Neuron = InputNeuron):
+
+        # new pop
+        pop = ann.Population(geometry=dim_in, neuron=neuron_model, name=name)
+        self.input_pops.append(pop.name)
+
         res = self.network.get_population(name='reservoir_pop')
 
         proj = ann.Projection(pre=pop, post=res, name=name + '_in')
@@ -89,6 +101,7 @@ class RCNetwork:
         # new pops
         pop_out = ann.Population(geometry=dim, neuron=OutputNeuron, name='out_' + name)
         pop_target = ann.Population(geometry=dim, neuron=InputNeuron, name='target_' + name)
+        self.target_pops.append(pop_target.name)
 
         res = self.network.get_population(name='reservoir_pop')
 
@@ -109,6 +122,12 @@ class RCNetwork:
 
     def compile_network(self, folder: str):
         self.network.compile(directory=folder)
+
+    def get_all_projections(self):
+        return self.network.get_projections()
+
+    def get_all_populations(self):
+        return self.network.get_populations()
 
     def run_target(self, data_target: np.ndarray, period: float = 1.,
                    training: bool = True, sim_time: float | None = None):
@@ -132,7 +151,7 @@ class RCNetwork:
             self.network.simulate(sim_time * period)
 
     @staticmethod
-    def make_target(dim_out: int, n_trials: int, seed: None | int = None):
+    def make_dynamic_target(dim_out: int, n_trials: int, seed: Optional[int] = None):
 
         # random period time
         T = np.random.RandomState(seed).uniform(1000, 2000)
@@ -149,6 +168,55 @@ class RCNetwork:
             y[:, out] = a1 * np.sin(2 * np.pi * x / T) + a2 * np.sin(4 * np.pi * x / T) + a3 * np.sin(6 * np.pi * x / T)
 
         return y, T
+
+    @staticmethod
+    def make_memory_trace(n_changes: int,
+                          heavyside_width: int = 100,
+                          heavyside_offset: int = 0,
+                          min_length: int = 200,
+                          max_length: int = 1200,
+                          smoothing_window: int = 50,
+                          norm: bool = True,
+                          seed: Optional[int] = None):
+
+        from .utils import moving_average
+
+        changes = np.random.RandomState(seed).randint(low=min_length, high=max_length, size=n_changes)
+        T = np.sum(changes) + 1
+        changes = np.cumsum(changes)
+
+        mermory_trace = np.zeros(T)
+        input_trace = np.zeros((T, 2))
+
+        for i in range(len(changes) - 1):
+            mermory_trace[int(changes[i]):int(changes[i+1])] = (i+1) % 2
+            bins = np.array((int(changes[i] + heavyside_offset), int(changes[i] + heavyside_width + heavyside_offset)))
+            input_trace[bins, i % 2] = 1
+
+        # smooth input and output
+        mermory_trace = moving_average(mermory_trace, smoothing_window)
+        input_trace = moving_average(input_trace, smoothing_window, dim=0)
+
+        if norm:
+            return mermory_trace/np.amax(mermory_trace), input_trace/np.amax(input_trace, axis=0)
+        else:
+            return mermory_trace, input_trace
+
+    @staticmethod
+    def make_random_walk(dim_out: int, T: int,
+                         start_points: float | np.ndarray = 0.5,
+                         mu: float = 0.5,
+                         sigma: float = 0.1,
+                         seed: Optional[int] = None):
+
+        # generate random gradients
+        rng = np.random.default_rng(seed).normal(loc=mu, scale=sigma, size=(T, dim_out))
+        # if single value fill a array with the fitting dimensions
+        if isinstance(start_points, float):
+            start_points = np.repeat(start_points, dim_out)
+        trace = np.row_stack((start_points, rng))
+
+        return np.cumsum(trace, axis=1)[1:]
 
     def init_monitors(self, pop_names: list[str], var_names: list[str] | None = None, sample_rate: float = 2.0):
         if var_names is None:

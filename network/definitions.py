@@ -54,27 +54,23 @@ InputNeuron = ann.Neuron(
     """
 )
 
-TestTargetNeuron = ann.Neuron(
+InputNeuron_dynamic = ann.Neuron(
     parameters="""
-    w1 = 0.6 : population
-    w2 = 0.7 : population
-    w3 = -0.2 : population
-
-    f1 = 1/1000 : population
-    f2 = 1/500 : population
-    f3 = 1/500 : population
-
-    phase_shift = -20.
+        tau = 10.0 : population
+        baseline = 0.0
+        phi = 0.0 : population
     """,
     equations="""
-    r = w1 * sin(2 * pi * f1 * t) + w2 * sin(2 * pi * f2 * t) + w3 * sin(2 * pi * f3 * t)
-    """
+        dr/dt + r = baseline + phi * Uniform(-1.0,1.0)
+    """,
+    name="Time-dependent Input Neuron",
+    description="Time dynamic Neuron with baseline to be set."
 )
 
 EHLearningRule = ann.Synapse(
     parameters="""
-        eta_init = 0.0005
-        decay = 10000.
+        eta_init = 0.0005 : projection
+        decay = 100_000. : projection
         """,
     equations="""
         w_old = w
