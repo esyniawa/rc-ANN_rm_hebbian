@@ -33,6 +33,7 @@ class RCNetwork:
 
         # monitors for recording
         self.monitors = []
+        self.sample_rate = 2.0
 
     def build_network(self):
 
@@ -141,9 +142,10 @@ class RCNetwork:
 
         if training:
             self.network.enable_learning()
+            self.network.get_population(name=self.output_pops[0]).test = 0
         else:
             self.network.disable_learning()
-            self.network.get_population(name='output_pop').phi = 0.0
+            self.network.get_population(name=self.output_pops[0]).test = 1
 
         @ann.every(period=period, net_id=self.network.id)
         def set_inputs(n):
@@ -167,10 +169,12 @@ class RCNetwork:
 
         if training:
             self.network.enable_learning()
+            for out_pop in self.output_pops:
+                self.network.get_population(name=out_pop).test = 0
         else:
             self.network.disable_learning()
             for out_pop in self.output_pops:
-                self.network.get_population(name=out_pop).phi = 0.0
+                self.network.get_population(name=out_pop).test = 1
 
         @ann.every(period=period, net_id=self.network.id)
         def set_inputs(n):
@@ -286,12 +290,14 @@ class RCNetwork:
         return trace, np.mean(trace, axis=1)
 
     def init_monitors(self, pop_names: list[str], var_names: list[str] | None = None, sample_rate: float = 2.0):
+        self.sample_rate = sample_rate
+
         if var_names is None:
             var_names = ['r'] * len(pop_names)
 
         for pop_name, var_name in zip(pop_names, var_names):
             pop = self.network.get_population(name=pop_name)
-            self.monitors.append(ann.Monitor(pop, variables=var_name, start=True, period=sample_rate))
+            self.monitors.append(ann.Monitor(pop, variables=var_name, start=True, period=self.sample_rate))
 
         self.network.add(self.monitors)
 
@@ -320,6 +326,7 @@ class RCNetwork:
 
     def plot_rates(self, plot_order: tuple[int, int],
                    plot_types: tuple | None,
+                   t_init: int = 0,
                    fig_size: tuple[float, float] | list[float, float] = (5, 5),
                    save_name: str = None) -> None:
 
@@ -336,6 +343,7 @@ class RCNetwork:
 
         ncols, nrows = plot_order
         results = self.get_monitors(delete_monitors=False, reshape=True)
+        t_init = int(t_init / self.sample_rate)
 
         fig = plt.figure(figsize=fig_size)
         for i, key_pop in enumerate(results):
@@ -347,7 +355,7 @@ class RCNetwork:
                     if results[key_pop][key_var].ndim > 2:
                         results[key_pop][key_var] = reshape_array(results[key_pop][key_var])
 
-                    plt.plot(results[key_pop][key_var])
+                    plt.plot(results[key_pop][key_var][t_init:])
                     plt.ylabel(key_var)
                     plt.xlabel('t', loc='right')
 
@@ -356,7 +364,7 @@ class RCNetwork:
                         results[key_pop][key_var] = reshape_array(results[key_pop][key_var], dim=3)
 
                     res_max = np.amax(abs(results[key_pop][key_var]))
-                    img = plt.contourf(results[key_pop][key_var].T, cmap='RdBu', vmin=-res_max, vmax=res_max)
+                    img = plt.contourf(results[key_pop][key_var][t_init:].T, cmap='RdBu', vmin=-res_max, vmax=res_max)
                     plt.colorbar(img, label=key_var, orientation='horizontal')
                     plt.xlabel('t', loc='right')
 
