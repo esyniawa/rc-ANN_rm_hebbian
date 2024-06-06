@@ -13,7 +13,7 @@ def closed_loop_network(dim_reservoir: int | tuple,
     target, period = RCNetwork.make_dynamic_target(dim_out=dim_out, n_trials=n_periods_train)
 
     # make network
-    RC = RCNetwork(dim_reservoir=dim_reservoir, dim_out=dim_out, rho=1.5)
+    RC = RCNetwork(dim_reservoir=dim_reservoir, dim_out=dim_out, rho=1.5, tau=50.)
     RC.compile_network(folder="annarchy/closed_loop_net/")
 
     # init monitors
@@ -50,7 +50,7 @@ def open_loop_network(dim_reservoir: int | tuple,
     train_memory_out = memory_out(memory_trace=train_memory_trace, rng_trace=train_input_rng)
 
     test_input_memory, test_memory_trace, test_T = RCNetwork.make_memory_trace(n_changes=n_periods_test,
-                                                                               heavyside_offset=-5,
+                                                                               heavyside_offset=0,
                                                                                norm=False)
 
     test_input_rng, test_nonlinear_trace = RCNetwork.make_random_walk_clip(dim_out=2, T=test_T, bounderies=1.5)
@@ -96,12 +96,12 @@ def open_loop_network(dim_reservoir: int | tuple,
         plot_types=('Plot', 'Matrix', 'Plot', 'Plot', 'Plot', 'Plot'),
         save_name=plot_name,
         t_init=-4*test_T,
-        fig_size=(16, 14)
+        fig_size=(25, 20)
     )
 
 
 if __name__ == '__main__':
     # task 1
-    closed_loop_network(1000, 2, 50, n_periods_test=5)
+    closed_loop_network(1000, 2, 80, n_periods_test=6)
     # task 3
-    open_loop_network(1000, 50, 5)
+    open_loop_network(1000, 100, 5)

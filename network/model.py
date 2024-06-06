@@ -13,7 +13,8 @@ class RCNetwork:
                  dim_out: int,
                  sigma: float = 0.2,
                  rho: float = 1.2,
-                 phi: float = 0.5):
+                 phi: float = 0.5,
+                 tau: float = 10.):
 
         # dimensions
         self.dim_reservoir = dim_reservoir
@@ -23,6 +24,7 @@ class RCNetwork:
         self.sigma = sigma
         self.rho = rho
         self.phi = phi
+        self.tau = tau
 
         # init network
         self.output_pops = []
@@ -52,7 +54,7 @@ class RCNetwork:
         # Built reservoir
         reservoir = ann.Population(geometry=self.dim_reservoir, neuron=ReservoirNeuron, name='reservoir_pop')
         reservoir.chaos_factor = self.rho
-        reservoir.tau = 10.
+        reservoir.tau = self.tau
 
         # output population
         output_pop = ann.Population(geometry=self.dim_out, neuron=OutputNeuron, name='output_pop')
@@ -195,7 +197,7 @@ class RCNetwork:
     def make_dynamic_target(dim_out: int, n_trials: int, seed: Optional[int] = None):
 
         # random period time
-        T = np.random.RandomState(seed).uniform(1000, 2000)
+        T = np.random.RandomState(seed).uniform(1500, 2000)
         x = np.arange(0, n_trials * T)
 
         y = np.zeros((len(x), dim_out))
