@@ -37,23 +37,27 @@ def closed_loop_network(dim_reservoir: int | tuple,
 def open_loop_network(dim_reservoir: int | tuple,
                       n_periods_train: int,
                       n_periods_test: int,
+                      offset_input: int = 0,
+                      scale_traces: float = 1.2,
                       plot_name: str | None = None):
 
     from network.utils import memory_out
 
     # make inputs
     train_input_memory, train_memory_trace, train_T = RCNetwork.make_memory_trace(n_changes=n_periods_train,
-                                                                                  heavyside_offset=-5,
-                                                                                  norm=False)
+                                                                                  heavyside_offset=offset_input,
+                                                                                  scale_output=scale_traces)
 
-    train_input_rng, train_nonlinear_trace = RCNetwork.make_random_walk_clip(dim_out=2, T=train_T, bounderies=1.5)
+    train_input_rng, train_nonlinear_trace = RCNetwork.make_random_walk_clip(dim_out=2, T=train_T, bounderies=scale_traces,
+                                                                             sigma=0.025)
     train_memory_out = memory_out(memory_trace=train_memory_trace, rng_trace=train_input_rng)
 
     test_input_memory, test_memory_trace, test_T = RCNetwork.make_memory_trace(n_changes=n_periods_test,
-                                                                               heavyside_offset=0,
-                                                                               norm=False)
+                                                                               heavyside_offset=offset_input,
+                                                                               scale_output=scale_traces)
 
-    test_input_rng, test_nonlinear_trace = RCNetwork.make_random_walk_clip(dim_out=2, T=test_T, bounderies=1.5)
+    test_input_rng, test_nonlinear_trace = RCNetwork.make_random_walk_clip(dim_out=2, T=test_T, bounderies=scale_traces,
+                                                                           sigma=0.025, start_points=train_input_rng[-1])
     test_memory_out = memory_out(memory_trace=test_memory_trace, rng_trace=test_input_rng)
 
     # concatenate arrays
@@ -64,7 +68,7 @@ def open_loop_network(dim_reservoir: int | tuple,
     target_non_fb_test = np.column_stack((test_nonlinear_trace, test_memory_out))
 
     # make network
-    RC = RCNetwork(dim_reservoir=dim_reservoir, dim_out=1, rho=1.2)
+    RC = RCNetwork(dim_reservoir=dim_reservoir, dim_out=1, rho=1.1, phi=0.2, tau=30.)
 
     # make input populations
     RC.add_input(dim_in=4, name='in_memory_task')
@@ -102,6 +106,6 @@ def open_loop_network(dim_reservoir: int | tuple,
 
 if __name__ == '__main__':
     # task 1
-    closed_loop_network(1000, 2, 80, n_periods_test=6)
+    # closed_loop_network(1000, 2, 80, n_periods_test=6)
     # task 3
     open_loop_network(1000, 100, 5)

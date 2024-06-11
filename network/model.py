@@ -216,16 +216,22 @@ class RCNetwork:
     def make_memory_trace(n_changes: int,
                           heavyside_width: int = 100,
                           heavyside_offset: int = 0,
-                          min_length: int = 200,
+                          min_length: int = 250,
                           max_length: int = 1200,
-                          smoothing_window: int = 25,
-                          norm: bool = True,
+                          smoothing_window: int = 50,
+                          sd_gauss_kernel: float = 30,
+                          scale_output: float | None = None,
                           seed: Optional[int] = None):
 
-        from .utils import moving_average
+        from .utils import gauss_convolve
+
+        # the memory trace always begins with an off state and should end with the off state, therefore
+        # n_changes must be odd
+        if n_changes % 2 == 0:
+            n_changes += 1
 
         changes = np.random.RandomState(seed).randint(low=min_length, high=max_length, size=n_changes)
-        T = np.sum(changes) + 1
+        T = np.sum(changes)
         changes = np.cumsum(changes)
 
         memory_trace = np.zeros(T)
@@ -237,13 +243,13 @@ class RCNetwork:
             input_trace[start:end, i % 2] = 1
 
         # smooth input and output
-        memory_trace = moving_average(memory_trace, smoothing_window)
-        input_trace = moving_average(input_trace, smoothing_window, dim=0)
+        memory_trace = gauss_convolve(memory_trace, window_size=smoothing_window, sd=sd_gauss_kernel)
+        input_trace = gauss_convolve(input_trace, window_size=smoothing_window, sd=sd_gauss_kernel, axis=0)
 
-        if norm:
-            return input_trace/np.amax(input_trace, axis=0), memory_trace/np.amax(memory_trace), input_trace.shape[0]
-        else:
+        if scale_output is None:
             return input_trace, memory_trace, input_trace.shape[0]
+        else:
+            return scale_output * input_trace, scale_output * memory_trace, input_trace.shape[0]
 
     @staticmethod
     def make_random_walk(dim_out: int, T: int,

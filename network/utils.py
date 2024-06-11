@@ -2,6 +2,26 @@ import numpy as np
 from typing import Optional
 
 
+def gauss_kernel(window_size: int, sd: float, amplitude: float | None = None):
+    # gauss kernel should have a maximum on 0
+    if window_size % 2 == 0:
+        n = window_size + 1
+    else:
+        n = window_size
+
+    x = np.linspace(-window_size/2, window_size/2, n, endpoint=True)
+
+    if amplitude is None:
+        amplitude = 1/(sd * np.sqrt(2 * np.pi))
+
+    return amplitude * np.exp(-0.5 * np.power(x/sd, 2))
+
+
+def gauss_convolve(m: np.ndarray, window_size: int, sd: float, amplitude: float | None = None, axis: int = 0):
+    g = gauss_kernel(window_size, sd, amplitude)
+    return np.apply_along_axis(lambda x: np.convolve(x, g, mode='same'), axis=axis, arr=m)
+
+
 def reshape_array(m: np.ndarray, dim: int = 2) -> np.ndarray:
     """
     Reduces the dimension of a tensor m into a desired dimension.
@@ -46,3 +66,9 @@ def memory_out(memory_trace: np.ndarray, rng_trace: np.ndarray) -> np.ndarray:
         else:
             result[t] = rng_trace[t, 1]
     return result
+
+if __name__ == '__main__':
+    a = np.random.normal(size=(10,2))
+
+    print(a.shape)
+    print(gauss_convolve(a, 11, sd=2, axis=0).shape)
