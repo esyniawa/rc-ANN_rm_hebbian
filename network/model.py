@@ -38,6 +38,12 @@ class RCNetwork:
         self.sample_rate = 2.0
 
     def build_network(self):
+        """
+        Builds the reservoir computing network with specified parameters and connections.
+
+        Returns:
+        ann.Network: The constructed ANNarchy network object.
+        """
 
         fb_strength = 1.0
         target_strength = 1.0
@@ -90,6 +96,18 @@ class RCNetwork:
                   scale_input: float = 1.0,
                   name: str = 'input_pop',
                   neuron_model: ann.Neuron = InputNeuron):
+        """
+        Adds an input population to the reservoir computing network.
+
+        Parameters:
+        dim_in (int): The dimensionality of the input population.
+        scale_input (float, optional): The scaling factor for the input weights. Default is 1.0.
+        name (str, optional): The name of the input population. Default is 'input_pop'.
+        neuron_model (ann.Neuron, optional): The neuron model to use for the input population. Default is InputNeuron.
+
+        Returns:
+        None
+        """
 
         # new pop
         pop = ann.Population(geometry=dim_in, neuron=neuron_model, name=name)
@@ -103,6 +121,18 @@ class RCNetwork:
         self.network.add([pop, proj])
 
     def add_output(self, dim: int, name: str, scale_fb: float | None, scale_target: float = 1.0):
+        """
+        Adds an output population to the reservoir computing network.
+
+        Parameters:
+        dim (int): The dimensionality of the output population.
+        name (str): The name of the output population.
+        scale_fb (float | None): The scaling factor for the feedback weights. If None, no feedback projection is created.
+        scale_target (float, optional): The scaling factor for the target weights. Default is 1.0.
+
+        Returns:
+        None
+        """
 
         # new pops
         pop_out = ann.Population(geometry=dim, neuron=OutputNeuron, name='out_' + name)
@@ -195,6 +225,17 @@ class RCNetwork:
 
     @staticmethod
     def make_dynamic_target(dim_out: int, n_trials: int, seed: Optional[int] = None):
+        """
+        Generates a dynamic target signal for the reservoir computing network.
+
+        Parameters:
+        dim_out (int): The dimensionality of the output signal.
+        n_trials (int): The number of trials for which the signal is generated.
+        seed (Optional[int], optional): The seed for the random number generator. Default is None.
+
+        Returns:
+        Tuple[np.ndarray, float]: A tuple containing the generated dynamic target signal (numpy array) and the period time (float).
+        """
 
         # random period time
         T = np.random.RandomState(seed).uniform(1500, 2000)
