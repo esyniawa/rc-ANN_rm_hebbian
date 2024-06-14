@@ -106,6 +106,6 @@ def open_loop_network(dim_reservoir: int | tuple,
 
 if __name__ == '__main__':
     # task 1
-    # closed_loop_network(1000, 2, 80, n_periods_test=6)
+    closed_loop_network(1000, 2, 80, n_periods_test=6)
     # task 3
     open_loop_network(1000, 100, 5)

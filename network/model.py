@@ -41,8 +41,7 @@ class RCNetwork:
         """
         Builds the reservoir computing network with specified parameters and connections.
 
-        Returns:
-        ann.Network: The constructed ANNarchy network object.
+        :return: ann.Network: The constructed ANNarchy network object.
         """
 
         fb_strength = 1.0
@@ -99,14 +98,10 @@ class RCNetwork:
         """
         Adds an input population to the reservoir computing network.
 
-        Parameters:
-        dim_in (int): The dimensionality of the input population.
-        scale_input (float, optional): The scaling factor for the input weights. Default is 1.0.
-        name (str, optional): The name of the input population. Default is 'input_pop'.
-        neuron_model (ann.Neuron, optional): The neuron model to use for the input population. Default is InputNeuron.
-
-        Returns:
-        None
+        :param dim_in: The dimensionality of the input population.
+        :param scale_input: The scaling factor for the input weights. Default is 1.0.
+        :param name: The name of the input population. Default is 'input_pop'.
+        :param neuron_model: The neuron model to use for the input population. Default is InputNeuron.
         """
 
         # new pop
@@ -124,14 +119,10 @@ class RCNetwork:
         """
         Adds an output population to the reservoir computing network.
 
-        Parameters:
-        dim (int): The dimensionality of the output population.
-        name (str): The name of the output population.
-        scale_fb (float | None): The scaling factor for the feedback weights. If None, no feedback projection is created.
-        scale_target (float, optional): The scaling factor for the target weights. Default is 1.0.
-
-        Returns:
-        None
+        :param dim: The dimensionality of the output population.
+        :param name: The name of the output population.
+        :param scale_fb: The scaling factor for the feedback weights. If None, no feedback projection is created.
+        :param scale_target: The scaling factor for the target weights. Default is 1.0.
         """
 
         # new pops
@@ -228,13 +219,11 @@ class RCNetwork:
         """
         Generates a dynamic target signal for the reservoir computing network.
 
-        Parameters:
-        dim_out (int): The dimensionality of the output signal.
-        n_trials (int): The number of trials for which the signal is generated.
-        seed (Optional[int], optional): The seed for the random number generator. Default is None.
+        :param dim_out: The dimensionality of the output signal.
+        :param n_trials: The number of trials for which the signal is generated.
+        :param seed: The seed for the random number generator. Default is None.
 
-        Returns:
-        Tuple[np.ndarray, float]: A tuple containing the generated dynamic target signal (numpy array) and the period time (float).
+        :return: A tuple containing the generated dynamic target signal (numpy array) and the period time (float).
         """
 
         # random period time
@@ -355,7 +344,7 @@ class RCNetwork:
         Gets all initialized monitors and returns them in a dict
         :param delete_monitors:
         :param reshape:
-        :return:
+        :return: Monitor dict.
         """
 
         res = {}
@@ -373,7 +362,8 @@ class RCNetwork:
             rec = self.network.get(monitor)
             np.save(folder + monitor.object.name, rec.get(keep=not delete_monitors, reshape=reshape))
 
-    def plot_rates(self, plot_order: tuple[int, int],
+    def plot_rates(self,
+                   plot_order: tuple[int, int],
                    plot_types: tuple | None,
                    t_init: int = 0,
                    fig_size: tuple[float, float] | list[float, float] = (5, 5),
@@ -381,11 +371,11 @@ class RCNetwork:
 
         """
         Plots 2D populations rates.
-        :param plot_types: can be 'Plot', 'Matrix' or None
-        :param plot_order:
-        :param fig_size:
-        :param save_name:
-        :return:
+        :param plot_types: A tuple containing plot types for each population rate. Can be 'Plot', 'Matrix', or None
+        :param plot_order: tuple specifying the number of columns and rows for the subplots grid.
+        :param t_init: The initial time step to start plotting from. Default is 0.
+        :param fig_size: The size of the figure. Default is (5, 5).
+        :param save_name: The name of the file to save the plot. If None, the plot will be displayed instead.
         """
 
         from .utils import ceil, reshape_array
