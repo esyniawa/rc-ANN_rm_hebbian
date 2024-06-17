@@ -68,7 +68,7 @@ def open_loop_network(dim_reservoir: int | tuple,
     target_non_fb_test = np.column_stack((test_nonlinear_trace, test_memory_out))
 
     # make network
-    RC = RCNetwork(dim_reservoir=dim_reservoir, dim_out=1, rho=1.1, phi=0.2, tau=30.)
+    RC = RCNetwork(dim_reservoir=dim_reservoir, dim_out=1, sigma=0.1, rho=1.2, phi=0.5, tau=10.)
 
     # make input populations
     RC.add_input(dim_in=4, name='in_memory_task')
@@ -106,6 +106,6 @@ def open_loop_network(dim_reservoir: int | tuple,
 
 if __name__ == '__main__':
     # task 1
-    closed_loop_network(1000, 2, 80, n_periods_test=6)
+    closed_loop_network(1000, 2, 100, n_periods_test=6)
     # task 3
-    open_loop_network(1000, 100, 5)
+    open_loop_network(1500, 200, 5)

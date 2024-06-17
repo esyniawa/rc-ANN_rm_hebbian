@@ -246,14 +246,28 @@ class RCNetwork:
     def make_memory_trace(n_changes: int,
                           heavyside_width: int = 100,
                           heavyside_offset: int = 0,
-                          min_length: int = 250,
+                          min_length: int = 300,
                           max_length: int = 1200,
-                          smoothing_window: int = 50,
-                          sd_gauss_kernel: float = 30,
+                          smoothing_window: int = 100,
                           scale_output: float | None = None,
                           seed: Optional[int] = None):
 
-        from .utils import gauss_convolve
+        """
+        Generates a memory trace signal for the reservoir computing network.
+
+        :param n_changes: The number of changes in the memory trace signal.
+        :param heavyside_width: The width of the heavyside function for each change. Default is 100.
+        :param heavyside_offset: The offset of the heavyside input function for each change. Default is 0.
+        :param min_length: The minimum time steps of each change. Default is 300.
+        :param max_length: The maximum time steps of each change. Default is 1200.
+        :param smoothing_window: The window size for exponential smoothing of the memory trace and input trace. Default is 100.
+        :param scale_output: The scaling factor for the output. If None, the output is not scaled. Default is None.
+        :param seed: The seed for the random number generator. Default is None.
+
+        :return: A tuple containing the input trace (numpy array), memory trace (numpy array), and the length of the input trace.
+        """
+
+        from .utils import exponential_smoothing
 
         # the memory trace always begins with an off state and should end with the off state, therefore
         # n_changes must be odd
@@ -272,9 +286,9 @@ class RCNetwork:
             start, end = int(changes[i] + heavyside_offset), int(changes[i] + heavyside_width + heavyside_offset)
             input_trace[start:end, i % 2] = 1
 
-        # smooth input and output
-        memory_trace = gauss_convolve(memory_trace, window_size=smoothing_window, sd=sd_gauss_kernel)
-        input_trace = gauss_convolve(input_trace, window_size=smoothing_window, sd=sd_gauss_kernel, axis=0)
+        # smooth input and target output
+        memory_trace = exponential_smoothing(memory_trace, windows_size=smoothing_window) - .5
+        input_trace = exponential_smoothing(input_trace, windows_size=smoothing_window)
 
         if scale_output is None:
             return input_trace, memory_trace, input_trace.shape[0]

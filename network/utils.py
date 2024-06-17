@@ -17,6 +17,12 @@ def gauss_kernel(window_size: int, sd: float, amplitude: float | None = None):
     return amplitude * np.exp(-0.5 * np.power(x/sd, 2))
 
 
+def exponential_smoothing(m: np.ndarray, windows_size: int = 100, tau: float = 50., axis: int = 0):
+    s = np.arange(windows_size)
+    kernel = np.exp(-s/tau)
+    return np.apply_along_axis(lambda x: np.convolve(x, kernel/np.sum(kernel), mode='same'), axis=axis, arr=m)
+
+
 def gauss_convolve(m: np.ndarray, window_size: int, sd: float, amplitude: float | None = None, axis: int = 0):
     g = gauss_kernel(window_size, sd, amplitude)
     return np.apply_along_axis(lambda x: np.convolve(x, g, mode='same'), axis=axis, arr=m)
