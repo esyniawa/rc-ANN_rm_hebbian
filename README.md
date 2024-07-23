@@ -26,7 +26,7 @@ project
       definitions.py  
 ```
 
-* ```main.py```: This is the main script to run the project. It includes functions to set up and execute the neural network in both open-loop and closed-loop configurations
+* ```main.py```: This is the main script to run the project. It includes functions to set up and execute the neural network in both closed-loop (Task 1 from [Hoerzer et al. (2014)](https://academic.oup.com/cercor/article/24/3/677/392266?login=false)) and open-loop (memory routing Task from [Hoerzer et al. (2014)](https://academic.oup.com/cercor/article/24/3/677/392266?login=false)) configurations. 
 * ```network/```: This directory contains the core components of the neural network.
   * ```model.py```: Defines the RCNetwork class, which includes methods for building, compiling, and running the reservoir computing network.
   * ```utils.py```: Contains utility functions used throughout the project.

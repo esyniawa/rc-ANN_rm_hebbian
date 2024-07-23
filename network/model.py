@@ -246,8 +246,8 @@ class RCNetwork:
     def make_memory_trace(n_changes: int,
                           heavyside_width: int = 100,
                           heavyside_offset: int = 0,
-                          min_length: int = 300,
-                          max_length: int = 1200,
+                          min_length: int = 1000,
+                          max_length: int = 2500,
                           smoothing_window: int = 100,
                           scale_output: float | None = None,
                           seed: Optional[int] = None):

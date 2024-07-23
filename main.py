@@ -8,6 +8,20 @@ def closed_loop_network(dim_reservoir: int | tuple,
                         n_periods_train: int,
                         n_periods_test: float,
                         plot_name: str | None = None):
+    """
+    Emergence of periodic activity through reward-modulated learning. Task 1 from Hoerzer et al., 2014.
+    The reservoir receives feedback from a readout neuron, but no other inputs
+
+    Parameters:
+    :param dim_reservoir: int or tuple, dimension of the reservoir.
+    :param  dim_out: int, dimension of the output.
+    :param  n_periods_train: int, number of periods for training.
+    :param  n_periods_test: float, number of periods for testing without learning.
+    :param  plot_name: str or None, name of the plot to save. If none, the plot will just be shown.
+
+    Returns:
+    None
+    """
 
     # make input
     target, period = RCNetwork.make_dynamic_target(dim_out=dim_out, n_trials=n_periods_train)
@@ -40,6 +54,20 @@ def open_loop_network(dim_reservoir: int | tuple,
                       offset_input: int = 0,
                       scale_traces: float = 1.2,
                       plot_name: str | None = None):
+    """
+    Simultaneous learning of working memory and state-dependent routing of information. Task 3 from Hoerzer et al., 2014.
+
+    Parameters:
+    :param dim_reservoir: int or tuple, the dimension of the reservoir.
+    :param n_periods_train: int, the number of training periods.
+    :param n_periods_test: int, the number of testing periods without learning.
+    :param offset_input: int, optional, default is 0, the offset for the input.
+    :param scale_traces: float, optional, default is 1.2, the scaling factor for traces.
+    :param plot_name: str or None, optional, the name for the plot. If none, the plot will just be shown.
+
+    Returns:
+    This function does not return any value, it sets up and runs the reservoir computing network.
+    """
 
     from network.utils import memory_out
 
